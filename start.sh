@@ -1,6 +1,34 @@
 #!/bin/bash
 set -e
 
+echo "=== Checking prerequisites ==="
+
+# 1. Check Docker
+if ! command -v docker &> /dev/null; then
+    echo "ERROR: Docker is not installed. Please install Docker Desktop (Windows/Mac) or Docker Engine (Linux) and run this script again."
+    exit 1
+fi
+
+# 2. Check Docker Compose
+if ! docker compose version &> /dev/null; then
+    echo "ERROR: Docker Compose is not installed (or not updated). Please install the Docker Compose plugin."
+    exit 1
+fi
+
+# 3. Check AWS CLI
+if ! command -v aws &> /dev/null; then
+    echo "ERROR: AWS CLI is not installed. Please install it: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+    exit 1
+fi
+
+# 4. Check Python3
+if ! command -v python3 &> /dev/null; then
+    echo "ERROR: Python3 is not installed. Please install Python3."
+    exit 1
+fi
+
+echo "=== All prerequisites are installed. Starting pipeline... ==="
+
 # Configuration
 INSTANCE_ID="i-0679f007b3e66e884"
 
