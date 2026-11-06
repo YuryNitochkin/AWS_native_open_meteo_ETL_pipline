@@ -14,6 +14,15 @@ The entire infrastructure is orchestrated by Apache Airflow, and the local demo 
 - **Visualization:** Apache Superset (Local Docker)
 - **Infrastructure:** AWS EC2, Docker, Docker Compose, Systemd
 
+## Prerequisites (Local Machine)
+
+To run this pipeline locally and interact with the AWS infrastructure, the following tools must be installed on your machine:
+
+- **Docker & Docker Compose:** For running Apache Airflow and Superset containers locally.
+- **AWS CLI (v2):** For managing the EC2 instance and generating temporary STS credentials.
+- **Python 3.9+:** For local scripts and parsing JSON responses.
+- **Git:** For cloning the repository.
+
 ## Architecture
 
 ```mermaid
