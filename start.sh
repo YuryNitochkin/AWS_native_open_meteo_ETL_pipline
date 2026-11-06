@@ -40,7 +40,7 @@ export AWS_ACCESS_KEY_ID=$(echo $STS_JSON | python3 -c "import sys, json; print(
 export AWS_SECRET_ACCESS_KEY=$(echo $STS_JSON | python3 -c "import sys, json; print(json.load(sys.stdin)['Credentials']['SecretAccessKey'])")
 export AWS_SESSION_TOKEN=$(echo $STS_JSON | python3 -c "import sys, json; print(json.load(sys.stdin)['Credentials']['SessionToken'])")
 
-echo "Making .env file with temporary AWS creds...."
+echo "  Making .env file with temporary AWS creds...."
 
 cat <<EOF > .env
 AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
@@ -66,7 +66,7 @@ cd superset
 mkdir -p dashboard_export_20261105T103326/databases
 cd ..
 
-echo "Generating database YAML with temporary credentials..."
+echo "  Generating database YAML with temporary credentials..."
 cat <<EOF > superset/dashboard_export_20261105T103326/databases/AWS_Athena_Weather.yaml
 database_name: AWS Athena (Weather)
 sqlalchemy_uri: awsathena+rest://@athena.eu-north-1.amazonaws.com/weather_dbt
@@ -92,7 +92,7 @@ uuid: f45025b1-996b-40b6-94eb-d74ec913e1a2
 version: 1.0.0
 EOF
 
-echo "Injecting fresh credentials into dashboard_export.zip..."
+echo "  Injecting fresh credentials into dashboard_export.zip..."
 # Заходим в папку superset, чтобы zip нашел архив
 cd superset
 
@@ -105,12 +105,12 @@ echo "2. Checking instance status..."
 INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].State.Name" --output text)
 
 if [ "$INSTANCE_STATE" == "running" ]; then
-    echo "Instance is already running."
+    echo "  Instance is already running."
 else
-    echo "Starting EC2 instance..."
+    echo "  Starting EC2 instance..."
     aws ec2 start-instances --instance-ids $INSTANCE_ID > /dev/null
     aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-    echo "Instance is now running."
+    echo "  Instance is now running."
 fi
 
 echo "3. Building and starting Superset + Airflow (this may take a few minutes)..."
