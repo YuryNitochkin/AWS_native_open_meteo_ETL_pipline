@@ -11,13 +11,6 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
     AIRFLOW__WEBSERVER__BASE_URL: 'http://localhost:8080'
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'False'
-    _AIRFLOW_WWW_USER_CREATE: 'true'
-    _AIRFLOW_WWW_USER_USERNAME: admin
-    _AIRFLOW_WWW_USER_PASSWORD: admin
-    _AIRFLOW_WWW_USER_FIRSTNAME: Airflow
-    _AIRFLOW_WWW_USER_LASTNAME: User
-    _AIRFLOW_WWW_USER_EMAIL: airflow@example.com
-    _AIRFLOW_WWW_USER_ROLE: Admin
     # Передаем AWS-креды внутрь Airflow (из нашего .env)
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -54,7 +47,7 @@ services:
     <<: *airflow-common
     ports:
       - "8080:8080"
-    entrypoint: /bin/bash -c "pip install apache-airflow-providers-amazon confluent-kafka requests && airflow db migrate && airflow webserver"
+    entrypoint: /bin/bash -c "pip install apache-airflow-providers-amazon confluent-kafka requests && airflow db migrate && airflow users create --username admin --firstname Airflow --lastname User --role Admin --email airflow@example.com --password admin || true && airflow webserver"
 
   airflow-scheduler:
     <<: *airflow-common
