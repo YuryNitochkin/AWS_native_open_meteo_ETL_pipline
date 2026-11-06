@@ -57,7 +57,7 @@ graph TD
 ## How to run
 
 ```bash
-git clone <your-repo-link>
+git clone <HTTPS/SSH/GitHub CLI Link>
 cd AWS_native_open_meteo_ETL_pipline
 chmod +x start.sh
 ./start.sh
