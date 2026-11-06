@@ -57,6 +57,8 @@ echo "AIRFLOW__WEBSERVER__SECRET_KEY=$SECRET_KEY" >> .env
 echo "AIRFLOW__CORE__FERNET_KEY=$FERNET_KEY" >> .env
 echo "AIRFLOW_UID=$(id -u)" >> .env
 
+mkdir -p ./airflow/logs
+mkdir -p ./airflow/dags
 sudo chown -R 50000:0 ./airflow/logs
 sudo chown -R 50000:0 ./airflow/dags
 
