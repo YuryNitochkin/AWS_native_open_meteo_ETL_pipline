@@ -1,0 +1,8 @@
+FROM apache/superset:latest
+
+USER root
+
+# Устанавливаем драйвер с помощью uv, как того требует новый образ
+RUN uv pip install --python /app/.venv/bin/python "pyathena[pandas]" "PyAthenaJDBC>1.0.9"
+
+USER superset

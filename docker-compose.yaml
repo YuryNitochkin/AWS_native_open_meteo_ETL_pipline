@@ -1,0 +1,73 @@
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.11.2
+  environment:
+    AIRFLOW_HOME: /opt/airflow
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@airflow-postgres/airflow
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 5
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__WEBSERVER__BASE_URL: 'http://localhost:8080'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'False'
+    _AIRFLOW_WWW_USER_CREATE: 'true'
+    _AIRFLOW_WWW_USER_USERNAME: admin
+    _AIRFLOW_WWW_USER_PASSWORD: admin
+    _AIRFLOW_WWW_USER_FIRSTNAME: Airflow
+    _AIRFLOW_WWW_USER_LASTNAME: User
+    _AIRFLOW_WWW_USER_EMAIL: airflow@example.com
+    _AIRFLOW_WWW_USER_ROLE: Admin
+    # Передаем AWS-креды внутрь Airflow (из нашего .env)
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+    AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+  depends_on:
+    - airflow-postgres
+
+services:
+  superset:
+    # Указываем Docker Compose, где искать Dockerfile
+    build: 
+      context: ./superset
+      dockerfile: dockerfile
+    
+    container_name: superset_app
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=TEST
+      - SUPERSET_LOAD_EXAMPLES=no
+    # Указываем пути к файлам внутри папки superset
+    volumes:
+      - ./superset/dashboard_export.zip:/app/dashboard_export.zip
+      - ./superset/superset-init.sh:/app/superset_init.sh
+      - ./superset/superset-config.py:/app/pythonpath/superset_config.py
+    
+    command: ["/bin/bash", "/app/superset_init.sh"]
+
+  airflow-webserver:
+    <<: *airflow-common
+    ports:
+      - "8080:8080"
+    entrypoint: /bin/bash -c "pip install apache-airflow-providers-amazon confluent-kafka requests && airflow db migrate && airflow webserver"
+
+  airflow-scheduler:
+    <<: *airflow-common
+    entrypoint: /bin/bash -c "pip install apache-airflow-providers-amazon confluent-kafka requests && airflow db migrate && airflow scheduler"
+
+  airflow-postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  airflow_postgres_data:
