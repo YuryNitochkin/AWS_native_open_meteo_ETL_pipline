@@ -39,8 +39,8 @@ STS_JSON=$(aws sts get-session-token --duration-seconds 21600)
 export AWS_ACCESS_KEY_ID=$(echo $STS_JSON | python3 -c "import sys, json; print(json.load(sys.stdin)['Credentials']['AccessKeyId'])")
 export AWS_SECRET_ACCESS_KEY=$(echo $STS_JSON | python3 -c "import sys, json; print(json.load(sys.stdin)['Credentials']['SecretAccessKey'])")
 export AWS_SESSION_TOKEN=$(echo $STS_JSON | python3 -c "import sys, json; print(json.load(sys.stdin)['Credentials']['SessionToken'])")
-
-echo "  Making .env file with temporary AWS creds...."
+    
+echo "   Making .env file with temporary AWS creds...."
 
 cat <<EOF > .env
 AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
@@ -49,13 +49,12 @@ AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 AWS_DEFAULT_REGION=eu-north-1
 EOF
 
-export FERNET_KEY="jrktA-ojWpevzjbsweQSYr_KWrCsIBhovsnnN-Ti5-E="
-export SECRET_KEY="52d632bffc9a2d5c68035df12374ba8cc985fbef9a673b364100a57ee3404af8"
+export FERNET_KEY=$(python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+export SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 # Дописываем их в .env
 echo "AIRFLOW__WEBSERVER__SECRET_KEY=$SECRET_KEY" >> .env
 echo "AIRFLOW__CORE__FERNET_KEY=$FERNET_KEY" >> .env
-echo "AIRFLOW_UID=$(id -u)" >> .env
 
 mkdir -p ./airflow/logs
 mkdir -p ./airflow/dags
@@ -66,7 +65,7 @@ cd superset
 mkdir -p dashboard_export_20261105T103326/databases
 cd ..
 
-echo "  Generating database YAML with temporary credentials..."
+echo "   Generating database YAML with temporary credentials..."
 cat <<EOF > superset/dashboard_export_20261105T103326/databases/AWS_Athena_Weather.yaml
 database_name: AWS Athena (Weather)
 sqlalchemy_uri: awsathena+rest://@athena.eu-north-1.amazonaws.com/weather_dbt
@@ -92,7 +91,7 @@ uuid: f45025b1-996b-40b6-94eb-d74ec913e1a2
 version: 1.0.0
 EOF
 
-echo "  Injecting fresh credentials into dashboard_export.zip..."
+echo "   Injecting fresh credentials into dashboard_export.zip..."
 # Заходим в папку superset, чтобы zip нашел архив
 cd superset
 
@@ -105,16 +104,48 @@ echo "2. Checking instance status..."
 INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].State.Name" --output text)
 
 if [ "$INSTANCE_STATE" == "running" ]; then
-    echo "  Instance is already running."
+    echo "   Instance is already running."
 else
-    echo "  Starting EC2 instance..."
+    echo "   Starting EC2 instance..."
     aws ec2 start-instances --instance-ids $INSTANCE_ID > /dev/null
     aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-    echo "  Instance is now running."
+    echo "   Instance is now running."
 fi
 
 echo "3. Building and starting Superset + Airflow (this may take a few minutes)..."
 docker compose build > /dev/null 2>&1
 docker compose up -d --force-recreate > /dev/null 2>&1
 sleep 60
-echo "Setup complete! Please wait 1-2 minutes, then open superset here = http://localhost:8088 (admin/admin)."
+echo "   Waiting for Airflow DAG to complete (this may take 2-3 minutes)..."
+MAX_WAIT=300 # Максимум 5 минут
+ELAPSED=0
+DAG_SUCCESS=false
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    # Проверяем, есть ли успешный запуск. Если grep находит 'success', возвращает 1.
+    if [ $(docker exec -e AIRFLOW__LOGGING__LOGGING_LEVEL=ERROR \
+           aws_native_open_meteo_etl_pipline-airflow-webserver-1 \
+           airflow dags list-runs -d weather_pipeline \
+           --state success --output json 2>/dev/null | grep -c 'success') \
+        -gt 0 ]; \
+        then
+        DAG_SUCCESS=true
+        break
+    fi
+    
+    echo "   Still waiting... ($ELAPSED seconds)"
+    sleep 10
+    ELAPSED=$((ELAPSED + 10))
+done
+
+if [ "$DAG_SUCCESS" = true ]; then
+    echo "   DAG completed successfully! Data is ready."
+else
+    echo    "Warning: DAG did not complete within 5 minutes. Check Airflow UI."
+fi
+
+
+echo "Setup complete!"
+echo "You can now open the dashboard and airflow:"
+echo "   Superset: http://localhost:8088 (admin/admin)"
+echo "   Airflow: http://localhost:8080 (admin/admin)"
