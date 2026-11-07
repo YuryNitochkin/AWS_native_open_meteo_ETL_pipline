@@ -90,6 +90,33 @@ Superset Dashboard: http://localhost:8088 (admin/admin)
 
 Airflow UI: http://localhost:8080 (admin/admin)
 
+## AWS Infrastructure Setup (How it was built)
+While the local demo only requires running ./start.sh, the underlying AWS infrastructure was provisioned manually to demonstrate practical cloud engineering skills. Here is a summary of the architectural decisions and setup:
+
+### 1. Compute (EC2)
+**Instance**: t3.small running Ubuntu 22.04 LTS.
+
+**Networking**: Elastic IP attached to ensure a static public IP for Kafka. Security Groups restrict SSH (port 22) to the developer's IP and Kafka (port 9093) to the world for external producer access.
+
+**Memory Tuning**: Due to the limited 2GB RAM, JVM heap was strictly limited (-Xmx256M), and -XX:-UseLargePages was added to prevent mmap memory allocation failures.
+
+**Bootstrapping**: Kafka and the Python Consumer are configured as systemd services (kafka.service and consumer.service) to auto-start on instance boot.
+
+### 2. Security & IAM (Least Privilege)
+**EC2 IAM Role (EC2-SSM-Role)**: Attached to the instance to allow secure access via AWS Systems Manager (SSM) without SSH keys. It also grants permissions to write to S3, read/write Glue, and query Athena.
+
+**Demo User (hr_user)**: A dedicated IAM user was created for the demo runner. It has strict permissions limited only to ec2:StartInstances, ec2:StopInstances, ssm:StartSession, and sts:GetSessionToken. No long-lived AWS keys are stored in the repository.
+
+### 3. Data Lake (S3 & Glue)
+**S3 Bucket**: aws-native-weather-data acts as the Data Lake. It stores raw JSON (raw/weather/), temporary dbt staging files, and the final Parquet files (silver/, gold/).
+
+**Glue Crawler**: Configured to scan the raw/weather/ prefix and automatically update the Glue Data Catalog with new daily partitions (e.g., 2026-11-06). It is triggered programmatically by Airflow.
+
+### 4. Orchestration & Access Flow
+**SSM (Systems Manager)**: Used by Airflow to trigger dbt run on the EC2 instance securely, without exposing SSH ports or passing .pem keys.
+
+**STS (Security Token Service)**: The local start.sh script uses aws sts get-session-token to generate temporary credentials for Superset. These are injected into the dashboard export on the fly, ensuring no hardcoded credentials exist in the repository or the Docker images.
+
 ## Architectural Decisions & Trade-offs
 
 1. **Kafka on EC2 (not Docker locally)**: Chosen to demonstrate real-world cloud networking, Security Groups configuration, and managing a KRaft cluster on a constrained t3.small instance (including JVM memory tuning).
